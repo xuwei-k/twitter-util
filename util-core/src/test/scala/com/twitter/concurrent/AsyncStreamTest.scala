@@ -172,22 +172,14 @@ class AsyncStreamTest extends FunSuite with GeneratorDrivenPropertyChecks {
     new Ctx(s => s ++ s)
   }
 
-  // Note: We could use ScalaCheck's Arbitrary[Function1] for some of the tests
-  // below, however ScalaCheck generates only constant functions which return
-  // the same value for any input. This makes it quite useless to us. We'll take
-  // another look since https://github.com/rickynils/scalacheck/issues/136 might
-  // have solved this issue.
-
   test("map") {
-    forAll { (s: List[Int]) =>
-      def f(n: Int) = n.toString
+    forAll { (s: List[Int], f: Int => String) =>
       assert(toSeq(fromSeq(s).map(f)) == s.map(f))
     }
   }
 
   test("mapF") {
-    forAll { (s: List[Int]) =>
-      def f(n: Int) = n.toString
+    forAll { (s: List[Int], f: Int => String) =>
       val g = f _ andThen Future.value
       assert(toSeq(fromSeq(s).mapF(g)) == s.map(f))
     }
@@ -203,8 +195,7 @@ class AsyncStreamTest extends FunSuite with GeneratorDrivenPropertyChecks {
   }
 
   test("filter") {
-    forAll { (s: List[Int]) =>
-      def f(n: Int) = n % 3 == 0
+    forAll { (s: List[Int], f: Int => Boolean) =>
       assert(toSeq(fromSeq(s).filter(f)) == s.filter(f))
     }
   }
@@ -234,8 +225,7 @@ class AsyncStreamTest extends FunSuite with GeneratorDrivenPropertyChecks {
   }
 
   test("foldRight") {
-    forAll { (a: List[Int]) =>
-      def f(n: Int, s: String) = (s.toLong + n).toString
+    forAll { (a: List[Int], f: (Int, String) => String) =>
       def g(q: Int, p: => Future[String]): Future[String] = p.map(f(q, _))
       val m = fromSeq(a).foldRight(Future.value("0"))(g)
       assert(await(m) == a.foldRight("0")(f))
@@ -243,8 +233,7 @@ class AsyncStreamTest extends FunSuite with GeneratorDrivenPropertyChecks {
   }
 
   test("scanLeft") {
-    forAll { (a: List[Int]) =>
-      def f(s: String, n: Int) = (s.toLong + n).toString
+    forAll { (a: List[Int], f: (String, Int) => String) =>
       assert(toSeq(fromSeq(a).scanLeft("0")(f)) == a.scanLeft("0")(f))
     }
   }
@@ -257,15 +246,13 @@ class AsyncStreamTest extends FunSuite with GeneratorDrivenPropertyChecks {
   }
 
   test("foldLeft") {
-    forAll { (a: List[Int]) =>
-      def f(s: String, n: Int) = (s.toLong + n).toString
+    forAll { (a: List[Int], f: (String, Int) => String) =>
       assert(await(fromSeq(a).foldLeft("0")(f)) == a.foldLeft("0")(f))
     }
   }
 
   test("foldLeftF") {
-    forAll { (a: List[Int]) =>
-      def f(s: String, n: Int) = (s.toLong + n).toString
+    forAll { (a: List[Int], f: (String, Int) => String) =>
       val g: (String, Int) => Future[String] = (q, p) => Future.value(f(q, p))
       assert(await(fromSeq(a).foldLeftF("0")(g)) == a.foldLeft("0")(f))
     }
